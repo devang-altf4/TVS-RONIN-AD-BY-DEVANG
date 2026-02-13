@@ -3,9 +3,11 @@ import { useScroll, useTransform, useSpring, motion, useMotionValueEvent, Motion
 import { Crosshair, Zap, Wind, Flame, Mouse } from 'lucide-react';
 
 const FRAME_COUNT = 168;
-const SCROLL_HEIGHT = '500vh';
+const SCROLL_HEIGHT = '600vh';
 
-// --- Text Overlay Component (Optimized — no blur, no heavy shadows) ---
+// --- Cinematic Text Overlay Component ---
+// Each element (icon, title, line, subtitle) has its own staggered scroll animation
+// for a premium, ad-like sequential reveal effect.
 const TextOverlay = ({ 
     start, end, title, subtitle, scrollProgress, icon: Icon, position = 'center'
 }: { 
@@ -13,43 +15,116 @@ const TextOverlay = ({
     scrollProgress: MotionValue<number>, icon: React.ElementType,
     position?: 'center' | 'left' | 'right'
 }) => {
-    const fadeIn = start + 0.03;
-    const fadeOut = end - 0.03;
+    const duration = end - start;
+    
+    // Slower fade-in (6% of scroll range) and fade-out (8% of scroll range)
+    // for a more cinematic, lingering feel
+    const fadeIn = start + duration * 0.08;
+    const holdEnd = end - duration * 0.12;
 
-    const opacity = useTransform(scrollProgress, [start, fadeIn, fadeOut, end], [0, 1, 1, 0]);
-    const yVal = useTransform(scrollProgress, [start, fadeIn, fadeOut, end], [40, 0, 0, -40]);
+    // --- Container: overall visibility ---
+    const containerOpacity = useTransform(
+        scrollProgress, 
+        [start, fadeIn, holdEnd, end], 
+        [0, 1, 1, 0]
+    );
 
+    // --- Icon: appears first with scale-up ---
+    const iconOpacity = useTransform(
+        scrollProgress,
+        [start, start + duration * 0.06, holdEnd - duration * 0.02, end],
+        [0, 1, 1, 0]
+    );
+    const iconScale = useTransform(
+        scrollProgress,
+        [start, start + duration * 0.08],
+        [0.5, 1]
+    );
+    const iconY = useTransform(
+        scrollProgress,
+        [start, start + duration * 0.08, holdEnd, end],
+        [20, 0, 0, -15]
+    );
+
+    // --- Title: slides up with a gentle reveal, slightly delayed ---
+    const titleOpacity = useTransform(
+        scrollProgress,
+        [start + duration * 0.04, start + duration * 0.14, holdEnd - duration * 0.02, end],
+        [0, 1, 1, 0]
+    );
+    const titleY = useTransform(
+        scrollProgress,
+        [start + duration * 0.04, start + duration * 0.16, holdEnd, end],
+        [60, 0, 0, -30]
+    );
+
+    // --- Red Line: expands from center, delayed further ---
+    const lineOpacity = useTransform(
+        scrollProgress,
+        [start + duration * 0.12, start + duration * 0.20, holdEnd, end],
+        [0, 1, 1, 0]
+    );
+    const lineScaleX = useTransform(
+        scrollProgress,
+        [start + duration * 0.12, start + duration * 0.22],
+        [0, 1]
+    );
+
+    // --- Subtitle: last to appear, gentle float up ---
+    const subtitleOpacity = useTransform(
+        scrollProgress,
+        [start + duration * 0.16, start + duration * 0.26, holdEnd, end],
+        [0, 1, 1, 0]
+    );
+    const subtitleY = useTransform(
+        scrollProgress,
+        [start + duration * 0.16, start + duration * 0.28, holdEnd, end],
+        [30, 0, 0, -20]
+    );
+
+    // On mobile, always center text for better readability
     const alignClass = position === 'left' 
-        ? 'items-start text-left pl-8 md:pl-20' 
+        ? 'items-center text-center md:items-start md:text-left md:pl-20' 
         : position === 'right' 
-        ? 'items-end text-right pr-8 md:pr-20' 
+        ? 'items-center text-center md:items-end md:text-right md:pr-20' 
         : 'items-center text-center';
 
     return (
         <motion.div 
-            style={{ opacity, y: yVal, willChange: 'transform, opacity' }}
-            className={`fixed inset-0 pointer-events-none z-10 flex flex-col justify-center px-6 ${alignClass}`}
+            style={{ opacity: containerOpacity, willChange: 'opacity' }}
+            className={`fixed inset-0 pointer-events-none z-10 flex flex-col justify-center px-4 sm:px-6 ${alignClass}`}
         >
-            {/* Icon */}
-            <div className="mb-5 p-3 rounded-full border border-red-500/30 bg-red-900/20 inline-flex">
+            {/* Icon — scales in gently */}
+            <motion.div 
+                style={{ opacity: iconOpacity, scale: iconScale, y: iconY }}
+                className="mb-3 sm:mb-5 p-2.5 sm:p-3.5 rounded-full border border-red-500/25 bg-red-900/15 inline-flex"
+            >
                 {/* @ts-ignore */}
-                <Icon size={32} className="text-red-500" strokeWidth={1.5} />
-            </div>
+                <Icon className="text-red-400 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" strokeWidth={1.2} />
+            </motion.div>
 
-            {/* Title — uses Montserrat via CSS */}
-            <h2 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white uppercase leading-[0.9] mb-4 tracking-tight"
-                style={{ textShadow: '0 4px 40px rgba(0,0,0,0.95), 0 0 80px rgba(0,0,0,0.6)' }}>
+            {/* Title — cinematic slide up, lighter white for elegance */}
+            <motion.h2 
+                style={{ opacity: titleOpacity, y: titleY }}
+                className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black text-white/95 uppercase leading-[0.9] mb-3 sm:mb-5 tracking-tight"
+                // Softer, more diffused shadow for a premium lighter feel
+            >
                 {title}
-            </h2>
+            </motion.h2>
 
-            {/* Red Line */}
-            <div className="h-1 w-16 md:w-28 bg-red-600 mb-5"></div>
+            {/* Red Line — expands from center like a cinematic wipe */}
+            <motion.div 
+                style={{ opacity: lineOpacity, scaleX: lineScaleX, transformOrigin: position === 'right' ? 'right' : position === 'left' ? 'left' : 'center' }}
+                className="h-[2px] sm:h-[3px] w-14 sm:w-20 md:w-32 bg-gradient-to-r from-red-700 via-red-500 to-red-700 mb-4 sm:mb-6"
+            ></motion.div>
 
-            {/* Subtitle — uses Inter via CSS */}
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 font-semibold tracking-widest uppercase max-w-2xl leading-relaxed"
-               style={{ textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}>
+            {/* Subtitle — soft float up, lighter color for refined look */}
+            <motion.p 
+                style={{ opacity: subtitleOpacity, y: subtitleY }}
+                className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl text-gray-300/90 font-medium tracking-[0.25em] sm:tracking-[0.3em] uppercase max-w-[85vw] sm:max-w-md md:max-w-lg lg:max-w-xl leading-relaxed"
+            >
                 {subtitle}
-            </p>
+            </motion.p>
         </motion.div>
     );
 };
@@ -162,9 +237,18 @@ const RoninExperience: React.FC = () => {
             }
         };
 
+        // Also handle orientation change on mobile
+        const handleOrientationChange = () => {
+            setTimeout(resize, 100);
+        };
+
         window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', handleOrientationChange);
         if (!isLoading) resize();
-        return () => window.removeEventListener('resize', resize);
+        return () => {
+            window.removeEventListener('resize', resize);
+            window.removeEventListener('orientationchange', handleOrientationChange);
+        };
     }, [isLoading, images, smoothProgress]);
 
     // Force initial draw
@@ -177,11 +261,11 @@ const RoninExperience: React.FC = () => {
     // --- Loading ---
     if (isLoading) {
         return (
-            <div className="h-screen w-full flex flex-col items-center justify-center bg-[#050505] text-white">
-                <h1 className="text-5xl md:text-7xl tracking-wide uppercase mb-8 text-red-600">
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-[#050505] text-white px-4">
+                <h1 className="text-3xl sm:text-5xl md:text-7xl tracking-wide uppercase mb-6 sm:mb-8 text-red-600">
                     TVS RONIN
                 </h1>
-                <div className="w-72 h-1 bg-gray-800 rounded-full overflow-hidden mb-4">
+                <div className="w-48 sm:w-72 h-1 bg-gray-800 rounded-full overflow-hidden mb-4">
                     <motion.div 
                         className="h-full bg-red-600 rounded-full"
                         initial={{ width: 0 }}
@@ -189,7 +273,7 @@ const RoninExperience: React.FC = () => {
                         transition={{ ease: "easeOut" }}
                     />
                 </div>
-                <p className="text-xs tracking-[0.4em] text-gray-500 uppercase font-semibold">
+                <p className="text-[10px] sm:text-xs tracking-[0.3em] sm:tracking-[0.4em] text-gray-500 uppercase font-semibold">
                     Loading Experience — {progress}%
                 </p>
             </div>
@@ -201,14 +285,14 @@ const RoninExperience: React.FC = () => {
         <div ref={containerRef} className="relative bg-[#050505]" style={{ height: SCROLL_HEIGHT }}>
             {/* Sticky Canvas */}
             <div className="sticky top-0 h-screen w-full overflow-hidden">
-                <canvas ref={canvasRef} className="absolute inset-0 bg-[#050505]" style={{ willChange: 'auto' }} />
+                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-[#050505]" style={{ willChange: 'auto' }} />
 
                 {/* Dark film for text readability */}
-                <div className="absolute inset-0 bg-black/35 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-black/25 pointer-events-none"></div>
 
                 {/* Edge vignette */}
                 <div className="absolute inset-0 pointer-events-none" 
-                     style={{ boxShadow: 'inset 0 0 120px 50px rgba(0,0,0,0.7)' }}></div>
+                     style={{ boxShadow: 'inset 0 0 60px 25px rgba(0,0,0,0.7), inset 0 0 120px 50px rgba(0,0,0,0.5)' }}></div>
             </div>
 
             {/* ---- SCROLL INDICATOR (shows once, disappears permanently) ---- */}
@@ -216,44 +300,44 @@ const RoninExperience: React.FC = () => {
                 <motion.div 
                     initial={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed bottom-10 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex flex-col items-center"
+                    className="fixed bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex flex-col items-center"
                 >
                     <motion.div
                         animate={{ y: [0, 10, 0] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        className="mb-3"
+                        className="mb-2 sm:mb-3"
                     >
-                        <Mouse size={32} className="text-white/70" />
+                        <Mouse className="text-white/70 w-6 h-6 sm:w-8 sm:h-8" />
                     </motion.div>
-                    <p className="text-xs text-white/70 font-bold tracking-[0.5em] uppercase">
+                    <p className="text-[10px] sm:text-xs text-white/70 font-bold tracking-[0.3em] sm:tracking-[0.5em] uppercase">
                         Scroll to Ignite
                     </p>
                     <motion.div 
                         animate={{ height: [12, 40, 12], opacity: [0.2, 0.7, 0.2] }} 
                         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        className="w-px bg-red-500 mt-3"
+                        className="w-px bg-red-500 mt-2 sm:mt-3"
                     />
                 </motion.div>
             )}
 
-            {/* ---- TEXT OVERLAYS ---- */}
+            {/* ---- TEXT OVERLAYS (wider ranges = text stays visible longer) ---- */}
             <TextOverlay 
-                scrollProgress={scrollYProgress} start={0.02} end={0.20} 
+                scrollProgress={scrollYProgress} start={0.01} end={0.22} 
                 title="Urban Samurai" subtitle="Precision engineered for the streets." 
                 icon={Crosshair} position="center"
             />
             <TextOverlay 
-                scrollProgress={scrollYProgress} start={0.25} end={0.45} 
+                scrollProgress={scrollYProgress} start={0.26} end={0.48} 
                 title="Awaken The Machine" subtitle="Ignition. Presence. Intent." 
                 icon={Zap} position="left"
             />
             <TextOverlay 
-                scrollProgress={scrollYProgress} start={0.50} end={0.70} 
+                scrollProgress={scrollYProgress} start={0.52} end={0.74} 
                 title="Control In Motion" subtitle="Torque meets urban agility." 
                 icon={Wind} position="right"
             />
             <TextOverlay 
-                scrollProgress={scrollYProgress} start={0.78} end={0.96} 
+                scrollProgress={scrollYProgress} start={0.76} end={0.97} 
                 title="Ride The Edge" subtitle="This is not transportation. This is expression." 
                 icon={Flame} position="center"
             />
